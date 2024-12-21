@@ -1,0 +1,457 @@
+21 Dec 2024, 13:25 pm
+// server.js
+const express = require("express");
+const app = express();
+const cors = require("cors");
+const mysql = require("mysql");
+const bodyParser = require("body-parser");
+
+const corsOptions = {
+  origin: "http://localhost:3000",
+  credentials: true,
+};
+
+app.use(express.json());
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+const db = mysql.createPool({
+  host: "localhost",
+  user: "root",
+  password: "",
+  database: "stkmngt1",
+  // Typically, MySQL runs on port 3306. Only specify if different.
+  // port: 3306
+});
+
+app.post("/item", (req, res) => {
+ // const newItem = req.body;
+
+  const sql =
+    "INSERT INTO item (itm_id, itm_name, itm_quantity, itm_price, itm_supplier, itm_catagory, itm_desc) VALUES (?, ?, ?, ?, ?, ?)";
+
+  const values = [
+    req.body.itm_id,
+    req.body.itm_name,
+    req.body.itm_quantity,
+    req.body.itm_price,
+    req.body.itm_supplier,
+    req.body.itm_catagory,
+    req.body.itm_desc,
+ ];
+  db.query(sql, values, (err, data) => {
+    if (err) return res.json(err);
+
+
+
+
+    return res.json(data);
+    // res.json({ message: 'Item created successfully', item: newItem });
+  });
+});
+
+app.get("/", (req, res) => {
+  const sql1 = "SELECT * FROM item";
+  db.query(sql1, (err, data) => {
+    if (err) return res.json(err);
+    return res.json(data);
+  });
+});
+
+app.listen(3001, () => {
+  console.log("Server running on port 3001");
+});
+ChatGPT said:
+ChatGPT
+Your server.js script appears well-structured for a basic Express application using MySQL as the database. However, there are a few areas you might want to review or refine:
+
+Suggestions and Observations:
+INSERT SQL Query Fix:
+
+Your query expects 7 parameters, but the comment // const newItem = req.body; and the number of parameters in values imply it might actually require 8.
+Correct the query or verify the schema to ensure all required fields are covered.
+CORS Configuration:
+
+The corsOptions object is set correctly for local development.
+If this server is later deployed, ensure the origin value matches the production frontend's URL.
+MySQL Connection Pool:
+
+You're using mysql.createPool, which is ideal for handling multiple concurrent database connections. Make sure your MySQL server has sufficient resources to handle the pool size.
+Error Handling:
+
+While errors are sent to the client (res.json(err)), it might be better to:
+js
+Copy code
+res.status(500).json({ error: "Internal Server Error" });
+Also, log the error to the server console for debugging.
+Body-Parser Redundancy:
+
+express.json() and express.urlencoded() (built-in since Express 4.16) make body-parser unnecessary. You can simplify by removing bodyParser.
+Database Schema Verification:
+
+Ensure that the table item in stkmngt1 database has columns matching:
+Copy code
+itm_id, itm_name, itm_quantity, itm_price, itm_supplier, itm_catagory, itm_desc
+Default Route (app.get("/")):
+
+This route fetches all records from the item table. It’s fine for development, but you might want to:
+Add pagination for large datasets.
+Use specific endpoints for filtered data, e.g., GET /items/:id.
+Environment Variables:
+
+Database credentials (host, user, password, etc.) should be managed securely using .env files and the dotenv package for sensitive information:
+js
+Copy code
+require("dotenv").config();
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+});
+Cleaned and Refactored server.js
+Here's a refined version:
+
+javascript
+Copy code
+const express = require("express");
+const cors = require("cors");
+const mysql = require("mysql");
+require("dotenv").config();
+
+const app = express();
+
+app.use(express.json());
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
+const db = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "stkmngt1",
+});
+
+// Create new item
+app.post("/item", (req, res) => {
+  const sql =
+    "INSERT INTO item (itm_id, itm_name, itm_quantity, itm_price, itm_supplier, itm_catagory, itm_desc) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  const values = [
+    req.body.itm_id,
+    req.body.itm_name,
+    req.body.itm_quantity,
+    req.body.itm_price,
+    req.body.itm_supplier,
+    req.body.itm_catagory,
+    req.body.itm_desc,
+  ];
+
+  db.query(sql, values, (err, data) => {
+    if (err) {
+      console.error("Error inserting item:", err);
+      return res.status(500).json({ error: "Failed to insert item" });
+    }
+    res.json({ message: "Item created successfully", item: req.body });
+  });
+});
+
+// Fetch all items
+app.get("/", (req, res) => {
+  const sql1 = "SELECT * FROM item";
+  db.query(sql1, (err, data) => {
+    if (err) {
+      console.error("Error fetching items:", err);
+      return res.status(500).json({ error: "Failed to fetch items" });
+    }
+    res.json(data);
+  });
+});
+
+app.listen(3001, () => {
+  console.log("Server running on port 3001");
+});
+This updated script ensures better readability, security, and maintainability. Let me know if you need further assistance!
+
+===========================
+8 Dec 2024, 11:30 am
+
+
+import React, { useState } from 'react';
+import axios from 'axios';
+
+function AddItem() {
+  const [id, setId] = useState('');
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [price, setPrice] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
+
+
+
+    const handleSubmit = async (e) => {
+    e.preventDefault();
+
+      try {
+      const newItem = {
+      item_id: id,
+      item_name: name,
+      item_quantity: quantity,
+      item_price: price,
+      item_supplier: supplier,
+      item_category: category,
+      item_description: description,
+    };
+
+    try {
+      const response = await axios.post('http://localhost:3001/item', newItem);
+
+      console.log(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="d-flex vh-100 bg-primary justify-content-center align-items-center">
+      <div className="w-90 bg-white rounded p-3">
+        <form onSubmit={handleSubmit}>
+          <h2>Add Item</h2>
+
+
+             <div className="mb-3">
+                      <label htmlFor="nameInput" className="name_input1">
+                          id
+                      </label>
+            <input type="text" className="form-control" id="idInput" value={id}
+                          onChange={(e) => setId(e.target.value)}
+                      />
+                  </div>
+
+
+          <div className="mb-3">
+            <label htmlFor="nameInput" className="name_input1">
+              Name
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="nameInput"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+                  </div>
+
+                                              
+          <div className="mb-3">
+            <label htmlFor="quantityInput" className="form-label">
+              Quantity
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="quantityInput"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="priceInput" className="form-label">
+              Price
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="priceInput"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="supplierInput" className="form-label">
+              Supplier
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="supplierInput"
+              value={supplier}
+              onChange={(e) => setSupplier(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="categoryInput" className="form-label">
+              Category
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="categoryInput"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-3">
+            <label htmlFor="descriptionInput" className="form-label">
+              Description
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              id="descriptionInput"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+<button type="submit" className="btn btn-primary" onClick={handleSubmit}>
+  Submit
+</button>
+
+                  {/*<button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                          <span>
+                              <i className="fa fa-spinner fa-spin"></i> Submitting...
+                          </span>
+                      ) : (
+                          <span>Submit</span>
+                      )}
+                  </button>
+*/}
+
+
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default AddItem;
+
+
+
+
+/*
+import React, { useState } from 'react';
+function AddItem() {
+  const [name, setName] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('/api/items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (response.ok) {
+        // Handle successful response
+        console.log('Data added successfully');
+      } else {
+        // Handle error response
+        console.log('Failed to add data');
+      }
+    } catch (error) {
+      // Handle network error
+      console.log('Network error:', error);
+    }
+  };
+
+  return (
+    <div className='d-flex vh-100 bg-primary justify-content-center align-items-center'>
+      <div className='w-90 bg-white rounded p-3'>
+        <form onSubmit={handleSubmit}>
+          <h2>Add Item</h2>
+
+          <div className="mb-3">
+            <label htmlFor="nameInput" className="name_input1">Name</label>
+            <input
+              type="text"
+              className="form-control"
+              id="nameInput"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+                  
+
+          <button type="submit" className="btn btn-primary">Submit</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default AddItem;
+
+* /
+
+
+/*=======================
+import React from 'react'
+
+function AddItem() {
+  return (
+      <div className='d-flex vh-100 bg-primary justify-content-center align-items-center'>
+          <div className='w-90 bg-white rounded p-3'>
+              <form>
+              <h2>Add Item aa</h2>
+
+                  <div className="mb-3">
+                    
+
+                      <label for="" className="name_input1">Name </label>
+                    <input type="text" className="form-control" id="name_input" aria-describedby="emailHelp" />
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Quantity</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Quantity</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Price</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Supplier</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Category</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <div className="mb-3">
+                      <label for="exampleInputEmail1" className="form-label">Description</label>
+                      <input type="text" className="form-control" id="exampleInputEmail1" aria-describedby="emailHelp"></input>
+                  </div>
+
+                  <button type="submit" className="btn btn-primary">Submit</button>
+              </form>
+
+          </div>
+      </div>
+
+
+  )
+}
+
+export default AddItem
+*/
